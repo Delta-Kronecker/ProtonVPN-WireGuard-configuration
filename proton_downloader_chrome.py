@@ -5,9 +5,11 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.action_chains import ActionChains
+from selenium.common.exceptions import TimeoutException, ElementClickInterceptedException
 
 # Define the selector for the modal backdrop which causes the click interception error
 MODAL_BACKDROP_SELECTOR = (By.CLASS_NAME, "modal-two-backdrop")
+CONFIRM_BUTTON_SELECTOR = (By.CSS_SELECTOR, ".button-solid-norm:nth-child(2)")
 
 # Define the download path accessible by GitHub Actions
 DOWNLOAD_DIR = os.path.join(os.getcwd(), "downloaded_configs")
@@ -20,14 +22,13 @@ if not os.path.exists(DOWNLOAD_DIR):
 
 class ProtonVPN:
     def __init__(self):
-        # *** Changed to Chrome Options ***
         self.options = webdriver.ChromeOptions()
         
         # --- Optimization for GitHub Actions/Server Environments ---
         self.options.add_argument('--headless')
         self.options.add_argument('--no-sandbox')
         self.options.add_argument('--disable-dev-shm-usage')
-        self.options.add_argument('--disable-gpu') # Often necessary in Linux CI environments
+        self.options.add_argument('--disable-gpu')
         self.options.add_argument('--window-size=1920,1080')
         
         # *** Key Configuration: Setting the Download Path in Chrome ***
@@ -43,7 +44,6 @@ class ProtonVPN:
 
     def setup(self):
         """Initializes the WebDriver (Chrome) with Headless options."""
-        # *** Changed to Chrome WebDriver ***
         self.driver = webdriver.Chrome(options=self.options)
         self.driver.set_window_size(1936, 1048)
         self.driver.implicitly_wait(10)
@@ -54,36 +54,30 @@ class ProtonVPN:
         if self.driver:
             self.driver.quit()
             print("WebDriver closed.")
+            
+    # --- Login, Navigation methods remain the same ---
 
-    # --- Login, Navigation, and Download Methods (Logic Remains the Same) ---
-    
     def login(self, username, password):
         try:
-            # ... (Login logic remains the same) ...
             self.driver.get("https://protonvpn.com/")
             time.sleep(2)
-
+            # ... (Rest of Login logic) ...
             self.driver.find_element(By.XPATH, "//a[contains(@href, 'https://account.protonvpn.com/login')]").click()
             time.sleep(2)
-
             user_field = self.driver.find_element(By.ID, "username")
             user_field.clear()
             user_field.send_keys(username)
             time.sleep(1)
-
             self.driver.find_element(By.CSS_SELECTOR, ".button-large").click()
             time.sleep(2)
-
             pass_field = self.driver.find_element(By.ID, "password")
             pass_field.clear()
             pass_field.send_keys(password)
             time.sleep(1)
-
             self.driver.find_element(By.CSS_SELECTOR, ".button-large").click()
             time.sleep(5)
             print("Login Successful.")
             return True
-
         except Exception as e:
             print(f"Error Login: {e}")
             return False
@@ -129,33 +123,42 @@ class ProtonVPN:
                             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
                             time.sleep(0.5)
 
+                            # 1. Click to open the modal
                             ActionChains(self.driver).move_to_element(btn).click().perform()
-                            time.sleep(1.5) 
 
-                            confirm_btn_selector = (By.CSS_SELECTOR, ".button-solid-norm:nth-child(2)")
-                            confirm_btn = WebDriverWait(self.driver, 10).until(
-                                EC.element_to_be_clickable(confirm_btn_selector)
+                            # 2. Wait explicitly for the confirm button to be clickable (Modal appeared)
+                            confirm_btn = WebDriverWait(self.driver, 15).until(
+                                EC.element_to_be_clickable(CONFIRM_BUTTON_SELECTOR)
                             )
                             confirm_btn.click()
 
-                            # *** CRITICAL FIX: Wait for the modal backdrop to disappear ***
-                            WebDriverWait(self.driver, 10).until(
+                            # 3. CRITICAL: Wait for the modal backdrop to disappear (Max 15 seconds)
+                            WebDriverWait(self.driver, 15).until(
                                 EC.invisibility_of_element_located(MODAL_BACKDROP_SELECTOR)
                             )
                             
                             print(f"Successfully downloaded config {index + 1} for {country_name}.")
 
-                            # 10-second delay between each config download
-                            time.sleep(10) 
+                            # 4. CRITICAL: Increased delay to 15 seconds to prevent rate limiting/race conditions
+                            time.sleep(15) 
 
-                        except Exception as e:
-                            print(f"Error downloading file {index + 1} for {country_name}. Continuing... Error: {e}")
+                        except (TimeoutException, ElementClickInterceptedException) as e:
+                            print(f"Error downloading file {index + 1} for {country_name}. Timeout or Interception. Retrying cleanup... Error: {e}")
+                            # Attempt to ensure the backdrop is cleared before continuing
                             try:
                                 WebDriverWait(self.driver, 5).until(
                                     EC.invisibility_of_element_located(MODAL_BACKDROP_SELECTOR)
                                 )
                             except:
-                                pass
+                                print("Warning: Backdrop cleanup failed, continuing anyway.")
+                            
+                            # Massive wait for server recovery
+                            time.sleep(30)
+                            continue
+                        
+                        except Exception as e:
+                            print(f"General error during download {index + 1} for {country_name}: {e}")
+                            time.sleep(30)
                             continue
 
                 except Exception as e:
@@ -169,6 +172,7 @@ class ProtonVPN:
             return False
 
     def logout(self):
+        # ... (Logout logic remains the same) ...
         try:
             self.driver.find_element(By.CSS_SELECTOR, ".p-1").click()
             time.sleep(1)
