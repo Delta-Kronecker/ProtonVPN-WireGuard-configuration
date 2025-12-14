@@ -58,12 +58,10 @@ class ProtonVPN:
             print("WebDriver closed.")
 
     def load_downloaded_ids(self):
-        """Loads only WireGuard IDs."""
         if os.path.exists(SERVER_ID_LOG_FILE):
             try:
                 with open(SERVER_ID_LOG_FILE, 'r') as f:
-                    data = json.load(f)
-                    return set(data)
+                    return set(json.load(f))
             except json.JSONDecodeError:
                 return set()
         return set()
@@ -118,7 +116,6 @@ class ProtonVPN:
             except:
                 return False
 
-    # --- WireGuard Logic Only ---
     def process_wireguard_downloads(self, downloaded_ids):
         print("\n--- Starting WireGuard Download Session ---")
         try:
@@ -129,7 +126,7 @@ class ProtonVPN:
             WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".flex:nth-child(4) > .mr-8:nth-child(1) > .relative"))).click()
             time.sleep(2) 
             
-            # Click Platform (Selecting the 3rd option, typically Windows/Linux generic)
+            # Click Platform (Selecting the 3rd option)
             WebDriverWait(self.driver, 10).until(EC.element_to_be_clickable((By.CSS_SELECTOR, ".flex:nth-child(4) > .mr-8:nth-child(3) .radio-fakeradio"))).click()
             time.sleep(2)
             
@@ -158,7 +155,6 @@ class ProtonVPN:
                             
                             btn = row.find_element(By.CSS_SELECTOR, ".button")
                             
-                            # Random delay 60-90s
                             random_delay = random.randint(60, 90)
                             
                             self.driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
@@ -179,11 +175,10 @@ class ProtonVPN:
         except Exception as e: print(f"WG Loop Error: {e}")
         return True, downloaded_ids
 
-    # --- Organization & Sending (WireGuard Only) ---
     def organize_and_send_files(self):
         print("\n###################### Organizing and Sending Files ######################")
         
-        wg_files = {} # {'US': [file1, file2], 'NL': [file3]}
+        wg_files = {} 
 
         # 1. Parse and Sort Files
         for filename in os.listdir(DOWNLOAD_DIR):
@@ -192,7 +187,6 @@ class ProtonVPN:
 
             file_path = os.path.join(DOWNLOAD_DIR, filename)
             
-            # Clean filename
             name_no_ext = filename.rsplit('.', 1)[0]
             clean_name = re.sub(r'\s*\(\d+\)$', '', name_no_ext).strip().lower() 
             
@@ -221,7 +215,6 @@ class ProtonVPN:
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for country, files in wg_files.items():
                 for file_path in files:
-                    # Create folder structure inside ZIP: e.g. US/file.conf
                     archive_name = os.path.join(country, os.path.basename(file_path))
                     zipf.write(file_path, arcname=archive_name)
 
@@ -247,13 +240,12 @@ class ProtonVPN:
             except Exception as e:
                 print(f"Telegram Error: {e}")
         
-        os.remove(zip_path)
+        # NOTE: os.remove(zip_path) has been removed permanently to keep the file for GitHub push.
         
-        # 4. Cleanup
-        print("Cleaning up...")
+        # 4. Cleanup downloaded files (Keep the ZIP and JSON)
+        print("Cleaning up downloaded files...")
         for file in glob.glob(os.path.join(DOWNLOAD_DIR, '*')):
             os.remove(file)
-        # Clear log to start fresh next time (optional, remove this line if you want to remember history)
         self.save_downloaded_ids(set()) 
 
     def run(self, username, password):
@@ -262,7 +254,6 @@ class ProtonVPN:
         wg_ids = self.load_downloaded_ids()
         
         try:
-            # Loop until all WireGuard files are downloaded
             while not wg_done and session < 20: 
                 session += 1
                 self.setup()
@@ -276,7 +267,6 @@ class ProtonVPN:
                     print(f"Session {session} done. Re-logging in {RELOGIN_DELAY}s...")
                     time.sleep(RELOGIN_DELAY)
             
-            # Once downloading is complete (or max sessions reached)
             self.organize_and_send_files()
 
         except Exception as e: print(f"Fatal Error: {e}")
