@@ -37,7 +37,7 @@ The files are available both on the GitHub repository and through the Telegram c
 
 1.  **Download Source:** Choose your preferred method:
     * **Via GitHub:** Download the file directly from this repository:
-      [**Download Full WireGuard Config Package**]([https://raw.githubusercontent.com/[YOUR_USERNAME]/[YOUR_REPOSITORY_NAME]/main/ProtonVPN_WireGuard_Configs.zip](https://github.com/Delta-Kronecker/ProtonVPN-WireGuard-configuration/raw/refs/heads/main/ProtonVPN_WireGuard_Configs.zip))
+      [**Download Full WireGuard Config Package**]([https://github.com/Delta-Kronecker/ProtonVPN-WireGuard-configuration/raw/refs/heads/main/ProtonVPN_WireGuard_Configs.zip]))
     * **Via Telegram:** Download the latest ZIP file uploaded to the channel [**ProtonConfigBot - VPN Configs**](https://t.me/ProtonConfigBot).
 
 2.  **Extraction:** Extract the downloaded ZIP file. The files are organized into folders by two-letter country codes (e.g., `US`, `DE`, `NL`).
